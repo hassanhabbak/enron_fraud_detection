@@ -74,7 +74,7 @@ labels, features = targetFeatureSplit(data)
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
 from sklearn.cross_validation import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, precision_recall_fscore_support
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 
@@ -149,6 +149,14 @@ print (clf_search.best_params_)
 best_params = {'n_estimators':22, 'learning_rate':0.4, 'algorithm':'SAMME.R'}
 clf = AdaBoostClassifier(RandomForestClassifier(random_state=42))
 clf.set_params(**best_params)
+
+print("optimized model (Adaboost Randomforest):")
+prediction = clf.fit(features_train, labels_train).predict(features_test)
+print("Accuracy: ", accuracy_score(prediction,labels_test))
+scores = precision_recall_fscore_support(labels_test, prediction, average='macro')
+print("Precision: ", scores[0])
+print("Recall: ", scores[1])
+
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
 ### check your results. You do not need to change anything below, but make sure
