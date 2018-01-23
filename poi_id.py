@@ -74,7 +74,8 @@ labels, features = targetFeatureSplit(data)
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
 from sklearn.cross_validation import train_test_split
-from sklearn.metrics import accuracy_score, precision_score, recall_score, precision_recall_fscore_support
+from sklearn.metrics import accuracy_score, precision_score, recall_score, precision_recall_fscore_support, make_scorer, \
+    f1_score
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 
@@ -101,16 +102,17 @@ print("PCA SVM: ", accuracy_score(clf.fit(features_train, labels_train).predict(
 
 # Random Forest
 from sklearn.ensemble import RandomForestClassifier
-clf = RandomForestClassifier(max_depth=2, random_state=42)
+clf = RandomForestClassifier(random_state=42)
 print("PCA Random Forest: ", accuracy_score(clf.fit(features_train, labels_train).predict(features_test),labels_test))
 
-# Random forest Ada
 from sklearn.ensemble import AdaBoostClassifier
-clf = AdaBoostClassifier(RandomForestClassifier(random_state=42))
-print("Ada boost Random Forest: ", accuracy_score(clf.fit(features_train, labels_train).predict(features_test),labels_test))
+
+# Decision tree Ada
+from sklearn.tree import DecisionTreeClassifier
+clf = AdaBoostClassifier(DecisionTreeClassifier(random_state=42))
+print("Ada boost decision tree: ", accuracy_score(clf.fit(features_train, labels_train).predict(features_test),labels_test))
 
 # Baysian Ada
-from sklearn.ensemble import AdaBoostClassifier
 clf = AdaBoostClassifier(GaussianNB())
 print("Ada boost Baysian: ", accuracy_score(clf.fit(features_train, labels_train).predict(features_test),labels_test))
 
@@ -134,10 +136,16 @@ features_train, features_test, labels_train, labels_test = \
 from sklearn.model_selection import GridSearchCV
 from sklearn.cross_validation import StratifiedKFold
 
+
 """
-parameters = {'n_estimators': range(10, 50), 'learning_rate':np.arange(0.1, 1, 0.1), 'algorithm':('SAMME', 'SAMME.R')}
-clf_search = GridSearchCV(AdaBoostClassifier(RandomForestClassifier(random_state=42)), parameters,
-                          scoring=['f1', 'precision', 'recall'], refit='precision',
+parameters = {"max_depth": [3, None],
+              "max_features": range(1, 11),
+              "min_samples_split": range(2, 15),
+              "min_samples_leaf": range(1, 11),
+              "bootstrap": [True, False],
+              "criterion": ["gini", "entropy"]}
+clf_search = GridSearchCV(RandomForestClassifier(random_state=42), parameters,
+                          make_scorer(f1_score),
                           n_jobs=4, cv=StratifiedKFold(labels))
 
 clf_search.fit(features, labels)
@@ -145,14 +153,18 @@ clf_search.fit(features, labels)
 print (clf_search.best_score_)
 print (clf_search.best_params_)
 """
+
 # Best parameters Precision of 1
-best_params = {'n_estimators':22, 'learning_rate':0.4, 'algorithm':'SAMME.R'}
-clf = AdaBoostClassifier(RandomForestClassifier(random_state=42))
+best_params = {'bootstrap':True, 'min_samples_split':2, 'criterion':'gini', 'max_features':7, 'max_depth':None}
+clf = RandomForestClassifier(random_state=42)
 clf.set_params(**best_params)
 
 print("optimized model (Adaboost Randomforest):")
 prediction = clf.fit(features_train, labels_train).predict(features_test)
 print("Accuracy: ", accuracy_score(prediction,labels_test))
+print(labels_test)
+print()
+print(prediction)
 scores = precision_recall_fscore_support(labels_test, prediction, average='macro')
 print("Precision: ", scores[0])
 print("Recall: ", scores[1])

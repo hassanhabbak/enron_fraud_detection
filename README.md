@@ -38,11 +38,11 @@ For financial data, we have the salary and how much they received as bonus. This
 
 The last 3 features were engineered. Feature 'bonus_per_salary' is how big of a bonus was received in comparison to the salary, to highlight extremely high bonuses to salary that may highlight fraud. For both features 'ratio_emails_from_poi' and 'ratio_emails_to_poi' are crucial in highlighting how much of the person's activity was emailing to and from POI. This could highlight if the person is also a POI.
 
-PCA was used for dimensionality reduction in some of the models used. However the end model used is insensitive to feature scaling (Adaboost and Random forest), so no scaling is required.
+PCA was used for dimensionality reduction in some of the models used. However the end model used is insensitive to feature scaling (Random forest), so no scaling is required.
 
 # Algorithm used
 
-In the end I have selected Adaboost with Random Forest as a base classifier. This resulted in a boost in precision and recall over other models, although there were certain models that were performing very close. I have tried (Bayes, Adaboost Bayes, Randomforest, PCA with SVM). When using PCA with Bayes it resulted in much less accuracy. However the rest were very close in performance. The reason I selected Adaboost with Randomforest is that it does not require any feature scaling and also deals really well with high dimensionality.
+In the end I have selected Random Forest. This resulted in a boost in precision and recall over other models, although there were certain models that were performing very close. I have tried (Bayes, Adaboost Bayes, PCA with SVM). When using PCA with Bayes it resulted in much less accuracy. However the rest were very close in performance. The reason I selected Randomforest is that it does not require any feature scaling and also deals really well with high dimensionality.
 
 # Model tuning
 
@@ -50,15 +50,19 @@ A lot of ML models start with early assumptions that can greatly affect the perf
 
 Parameters used:
 
-    .'n_estimators': range(10, 50)
-    .'learning_rate':np.arange(0.1, 1, 0.1)
-    .'algorithm':('SAMME', 'SAMME.R')
+    ."max_depth": [3, None]
+    ."max_features": range(1, 11)
+    ."min_samples_split": range(2, 15)
+    ."bootstrap": [True, False]
+    ."criterion": ["gini", "entropy"]
 
 Those are the parameters that Adaboost can accept. After running parameters randomization the following proved to be the best parameters:
 
-    .'n_estimators':22
-    .'learning_rate':0.4
-    .'algorithm':'SAMME.R'
+    .'bootstrap':True
+    .'min_samples_split':2
+    .'criterion':'gini'
+    .'max_features':7
+    .'max_depth':None
 
 # Model validation
 
@@ -66,6 +70,6 @@ Model validation is to see how well your model predicts an in-depended dataset c
 
 # Performance metrics
 
-Accuracy: 0.81395
-Precision: 0.406
-Recall: 0.5
+Accuracy: 0.79
+Precision: 0.404
+Recall: 0.485
