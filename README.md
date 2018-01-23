@@ -13,28 +13,28 @@ For the Email information it contains how many emails where sent and received as
 For financial data, we have the salary and how much they received as bonus. This should be a good indication on what they did for Enron as well as if they were involved in fraud in one way or another.
 
 # Features used
-  .'salary'
-  .'deferral_payments'
-  .'total_payments'
-  .'loan_advances'
-  .'bonus'
-  .'restricted_stock_deferred'
-  .'deferred_income'
-  .'total_stock_value'
-  .'expenses'
-  .'exercised_stock_options'
-  .'other'
-  .'long_term_incentive'
-  .'restricted_stock'
-  .'director_fees'
-  .'to_messages'
-  .'from_poi_to_this_person'
-  .'from_messages'
-  .'from_this_person_to_poi'
-  .'shared_receipt_with_poi'
-  .'bonus_per_salary'
-  .'ratio_emails_from_poi'
-  .'ratio_emails_to_poi'
+    .'salary'
+    .'deferral_payments'
+    .'total_payments'
+    .'loan_advances'
+    .'bonus'
+    .'restricted_stock_deferred'
+    .'deferred_income'
+    .'total_stock_value'
+    .'expenses'
+    .'exercised_stock_options'
+    .'other'
+    .'long_term_incentive'
+    .'restricted_stock'
+    .'director_fees'
+    .'to_messages'
+    .'from_poi_to_this_person'
+    .'from_messages'
+    .'from_this_person_to_poi'
+    .'shared_receipt_with_poi'
+    .'bonus_per_salary'
+    .'ratio_emails_from_poi'
+    .'ratio_emails_to_poi'
 
 The last 3 features were engineered. Feature 'bonus_per_salary' is how big of a bonus was received in comparison to the salary, to highlight extremely high bonuses to salary that may highlight fraud. For both features 'ratio_emails_from_poi' and 'ratio_emails_to_poi' are crucial in highlighting how much of the person's activity was emailing to and from POI. This could highlight if the person is also a POI.
 
@@ -49,14 +49,16 @@ In the end I have selected Adaboost with Random Forest as a base classifier. Thi
 A lot of ML models start with early assumptions that can greatly affect the performance of the model. For that, trial and error is needed to select the correct parameters for our problem. I have used GridSearchCV to try the different combination of parameters on the model to select the correct ones. That resulted in higher precision and recall rates.
 
 Parameters used:
-  . 'n_estimators': range(10, 50)
-  . 'learning_rate':np.arange(0.1, 1, 0.1)
-  . 'algorithm':('SAMME', 'SAMME.R')
+
+    .'n_estimators': range(10, 50)
+    .'learning_rate':np.arange(0.1, 1, 0.1)
+    .'algorithm':('SAMME', 'SAMME.R')
 
 Those are the parameters that Adaboost can accept. After running parameters randomization the following proved to be the best parameters:
-  . 'n_estimators':22
-  . 'learning_rate':0.4
-  . 'algorithm':'SAMME.R'
+
+    .'n_estimators':22
+    .'learning_rate':0.4
+    .'algorithm':'SAMME.R'
 
 # Model validation
 
