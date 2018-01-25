@@ -4,6 +4,8 @@ from __future__ import print_function
 import sys
 import pickle
 
+from sklearn.feature_selection import SelectFromModel, SelectKBest
+
 sys.path.append("./tools/")
 
 from feature_format import featureFormat, targetFeatureSplit
@@ -68,19 +70,27 @@ my_dataset = df.to_dict('index')
 data = featureFormat(my_dataset, features_list, sort_keys=True)
 labels, features = targetFeatureSplit(data)
 
+labels = np.array(labels)
+features = np.array(features)
+
 ### Task 4: Try a varity of classifiers
 ### Please name your classifier clf for easy export below.
 ### Note that if you want to do PCA or other multi-stage operations,
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
 from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.metrics import accuracy_score, precision_score, recall_score, precision_recall_fscore_support, make_scorer, \
-    f1_score
+    f1_score, classification_report
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 
-features_train, features_test, labels_train, labels_test = \
-    train_test_split(features, labels, test_size=0.3, random_state=42)
+sss = StratifiedShuffleSplit(n_splits=1)
+
+for train_index, test_index in sss.split(features, labels):
+    print("TRAIN:", train_index, "TEST:", test_index)
+    features_train, features_test = features[train_index], features[test_index]
+    labels_train, labels_test = labels[train_index], labels[test_index]
 
 # Provided to give you a starting point. Try a variety of classifiers.
 
@@ -91,84 +101,125 @@ print('------Model Accuracies')
 from sklearn.naive_bayes import GaussianNB
 
 clf = Pipeline([('reduce_dim', PCA()), ('clf', GaussianNB())])
-#clf = GaussianNB()
-print("Bayes: ", accuracy_score(clf.fit(features_train, labels_train).predict(features_test),labels_test))
+# clf = GaussianNB()
+print("Bayes model")
+scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
+                                         average='macro')
+print("Precision: ", scores[0])
+print("Recall: ", scores[1])
+print()
 
 # SVM
-from sklearn.svm import SVC
+from sklearn.svm import SVC, LinearSVC
+
 clf = Pipeline([('reduce_dim', PCA()), ('clf', SVC())])
-#clf = SVC()
-print("PCA SVM: ", accuracy_score(clf.fit(features_train, labels_train).predict(features_test),labels_test))
+# clf = SVC()
+print("PCA SVM")
+scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
+                                         average='macro')
+print("Precision: ", scores[0])
+print("Recall: ", scores[1])
+print()
 
 # Random Forest
 from sklearn.ensemble import RandomForestClassifier
+
 clf = RandomForestClassifier(random_state=42)
-print("PCA Random Forest: ", accuracy_score(clf.fit(features_train, labels_train).predict(features_test),labels_test))
+print("Random Forest")
+scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
+                                         average='macro')
+print("Precision: ", scores[0])
+print("Recall: ", scores[1])
+print()
 
 from sklearn.ensemble import AdaBoostClassifier
 
 # Decision tree Ada
 from sklearn.tree import DecisionTreeClassifier
+
 clf = AdaBoostClassifier(DecisionTreeClassifier(random_state=42))
-print("Ada boost decision tree: ", accuracy_score(clf.fit(features_train, labels_train).predict(features_test),labels_test))
+print("Ada boost decision tree")
+scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
+                                         average='macro')
+print("Precision: ", scores[0])
+print("Recall: ", scores[1])
+print()
 
 # Baysian Ada
 clf = AdaBoostClassifier(GaussianNB())
-print("Ada boost Baysian: ", accuracy_score(clf.fit(features_train, labels_train).predict(features_test),labels_test))
+print("Ada boost Baysian")
+scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
+                                         average='macro')
+print("Precision: ", scores[0])
+print("Recall: ", scores[1])
+print()
 
 # Baysian PCA Ada
 from sklearn.ensemble import AdaBoostClassifier
+
 clf = Pipeline([('reduce_dim', PCA()), ('clf', AdaBoostClassifier(GaussianNB()))])
-print("Ada boost PCA Baysian: ", accuracy_score(clf.fit(features_train, labels_train).predict(features_test),labels_test))
+print("Ada boost PCA Baysian")
+scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
+                                         average='macro')
+print("Precision: ", scores[0])
+print("Recall: ", scores[1])
+print()
 
-
-### Task 5: Tune your classifier to achieve better than .3 precision and recall 
+### Task 5: Tune your classifier to achieve better than .3 precision and recall
 ### using our testing script. Check the tester.py script in the final project
 ### folder for details on the evaluation method, especially the test_classifier
 ### function. Because of the small size of the dataset, the script uses
 ### stratified shuffle split cross validation. For more info: 
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
-# Example starting point. Try investigating other evaluation techniques!
-features_train, features_test, labels_train, labels_test = \
-    train_test_split(features, labels, test_size=0.3, random_state=42)
-
 from sklearn.model_selection import GridSearchCV
 from sklearn.cross_validation import StratifiedKFold
 
-
 """
-parameters = {"max_depth": [3, None],
-              "max_features": range(1, 11),
-              "min_samples_split": range(2, 15),
-              "min_samples_leaf": range(1, 11),
-              "bootstrap": [True, False],
-              "criterion": ["gini", "entropy"]}
-clf_search = GridSearchCV(RandomForestClassifier(random_state=42), parameters,
-                          make_scorer(f1_score),
-                          n_jobs=4, cv=StratifiedKFold(labels))
+parameters = {"clf_max_depth": [2,3,4,5,6,7,8,9,10,11,12],
+              "clf_max_features": ['auto', 'sqrt', 'log2'],
+              "clf_min_samples_split": range(2, 6),
+              "clf_min_samples_leaf": range(1, 11),
+              "clf_n_estimators" : [5,7,10,12,14],
+              "clf_criterion": ["gini", "entropy"]}
+              """
+
+parameters = dict(feature_selection__k=[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22],
+                  random_forest__n_estimators=[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22],
+                  random_forest__criterion=["gini", "entropy"],
+                  random_forest__min_samples_split=[2, 3, 4, 5, 10])
+
+sss = StratifiedShuffleSplit(n_splits=10, random_state=42)
+
+pipe = Pipeline([('feature_selection', SelectKBest()),
+                 ('random_forest', RandomForestClassifier())])
+
+clf_search = GridSearchCV(pipe
+                          , parameters,
+                          ['precision', 'recall'], refit='recall', n_jobs=-1,
+                          cv=5, verbose=5, return_train_score=True)
 
 clf_search.fit(features, labels)
 
-print (clf_search.best_score_)
-print (clf_search.best_params_)
-"""
+print(clf_search.best_score_)
+print(clf_search.best_params_)
+
 
 # Best parameters Precision of 1
-best_params = {'bootstrap':True, 'min_samples_split':2, 'criterion':'gini', 'max_features':7, 'max_depth':None}
-clf = RandomForestClassifier(random_state=42)
+
+best_params = {'random_forest__n_estimators': 2, 'feature_selection__k': 22, 'random_forest__min_samples_split': 10, 'random_forest__criterion': 'entropy'}
+clf = Pipeline([('feature_selection', SelectKBest()),
+                 ('random_forest', RandomForestClassifier())])
 clf.set_params(**best_params)
 
 print("optimized model (Adaboost Randomforest):")
 prediction = clf.fit(features_train, labels_train).predict(features_test)
-print("Accuracy: ", accuracy_score(prediction,labels_test))
 print(labels_test)
 print()
 print(prediction)
 scores = precision_recall_fscore_support(labels_test, prediction, average='macro')
 print("Precision: ", scores[0])
 print("Recall: ", scores[1])
-
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
 ### check your results. You do not need to change anything below, but make sure
