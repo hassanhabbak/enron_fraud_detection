@@ -185,34 +185,38 @@ parameters = {"clf_max_depth": [2,3,4,5,6,7,8,9,10,11,12],
               """
 
 parameters = dict(feature_selection__k=[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22],
-                  random_forest__n_estimators=[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22],
-                  random_forest__criterion=["gini", "entropy"],
-                  random_forest__min_samples_split=[2, 3, 4, 5, 10])
+                  clf__n_estimators=[5, 10, 20, 30],
+                  clf__algorithm =('SAMME', 'SAMME.R'),
+                  clf__learning_rate = np.arange(0.1, 1, 0.1),
+                  clf__base_estimator__criterion=["gini", "entropy"],
+                  clf__base_estimator__splitter=["best", "random"],
+                  clf__base_estimator__min_samples_leaf=[1, 2, 3, 4, 5],
+                  clf__base_estimator__min_samples_split=[2, 3, 4, 5, 10])
 
-sss = StratifiedShuffleSplit(n_splits=10, random_state=42)
+sss = StratifiedShuffleSplit(random_state=42)
 
 pipe = Pipeline([('feature_selection', SelectKBest()),
-                 ('random_forest', RandomForestClassifier())])
+                 ('clf', AdaBoostClassifier(DecisionTreeClassifier(random_state=42)))])
 
 clf_search = GridSearchCV(pipe
                           , parameters,
-                          ['precision', 'recall'], refit='recall', n_jobs=-1,
-                          cv=5, verbose=5, return_train_score=True)
+                          scoring='f1', n_jobs=-1,
+                          cv=sss, verbose=5, return_train_score=True)
 
 clf_search.fit(features, labels)
 
 print(clf_search.best_score_)
 print(clf_search.best_params_)
 
-
 # Best parameters Precision of 1
 
-best_params = {'random_forest__n_estimators': 2, 'feature_selection__k': 22, 'random_forest__min_samples_split': 10, 'random_forest__criterion': 'entropy'}
+# best_params = {'clf__base_estimator__splitter': 'random', 'clf__n_estimators': 30, 'clf__base_estimator__min_samples_split': 2, 'clf__base_estimator__criterion': 'entropy', 'feature_selection__k': 22, 'clf__base_estimator__min_samples_leaf': 1}
+best_params = clf_search.best_params_
 clf = Pipeline([('feature_selection', SelectKBest()),
-                 ('random_forest', RandomForestClassifier())])
+                ('clf', AdaBoostClassifier(DecisionTreeClassifier(random_state=42)))])
 clf.set_params(**best_params)
 
-print("optimized model (Adaboost Randomforest):")
+print("optimized model (Adaboost decision tree):")
 prediction = clf.fit(features_train, labels_train).predict(features_test)
 print(labels_test)
 print()
