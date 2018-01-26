@@ -4,12 +4,15 @@ from __future__ import print_function
 import sys
 import pickle
 
+from sklearn.ensemble import AdaBoostClassifier
 from sklearn.feature_selection import SelectFromModel, SelectKBest
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.tree import DecisionTreeClassifier
 
 sys.path.append("./tools/")
 
 from feature_format import featureFormat, targetFeatureSplit
-from tester import dump_classifier_and_data
+from tester import dump_classifier_and_data, test_classifier
 
 import numpy as np
 import pandas as pd
@@ -40,11 +43,15 @@ print(df.describe())
 
 # Fill missing values
 # Filling with median will avoid the influence of outliers
+"""
 df[financial_features] = df[financial_features].apply(lambda x: x.fillna(x.median()),
                                                       axis=0)  # Fill with median of each column
 df[email_features] = df[email_features].fillna(df[email_features].median())  # Fill with median of each column
+"""
 
-# print(df.loc['BADUM JAMES P'])
+df[financial_features] = df[financial_features].fillna(0)
+df[email_features] = df[email_features].fillna(df[email_features].median())  # Fill with median of each column
+
 
 # From the description of the dataframe, outliers are mostly in email sent
 # We want to retain outliers in salary or financial
@@ -54,17 +61,25 @@ df = df[np.abs(df.from_messages - df.from_messages.mean()) <= (3 * df.from_messa
 ### Task 3: Create new feature(s)
 ### Store to my_dataset for easy export below.
 df['bonus_per_salary'] = df.bonus / df.salary
+df['bonus_per_salary'] = df['bonus_per_salary'].fillna(0)
 df['ratio_emails_from_poi'] = df.from_poi_to_this_person / df.from_messages
 df['ratio_emails_to_poi'] = df.from_this_person_to_poi / df.to_messages
 
 features_list = ['poi', 'salary', 'deferral_payments', 'total_payments', 'loan_advances', 'bonus',
                  'restricted_stock_deferred', 'deferred_income', 'total_stock_value', 'expenses',
-                 'exercised_stock_options', 'other', 'long_term_incentive', 'restricted_stock',
+                 'exercised_stock_options', 'long_term_incentive', 'restricted_stock',
                  'director_fees', 'to_messages', 'from_poi_to_this_person', 'from_messages',
                  'from_this_person_to_poi', 'shared_receipt_with_poi', 'bonus_per_salary',
                  'ratio_emails_from_poi', 'ratio_emails_to_poi']
+"""
+features_list = ['poi', 'salary', 'total_stock_value', 'expenses', 'bonus',
+          'exercised_stock_options', 'deferred_income',
+          'ratio_emails_to_poi', 'from_poi_to_this_person', 'ratio_emails_from_poi',
+          'shared_receipt_with_poi']"""
+print(features_list)
 
 my_dataset = df.to_dict('index')
+# my_dataset = data_dict
 
 ### Extract features and labels from dataset for local testing
 data = featureFormat(my_dataset, features_list, sort_keys=True)
@@ -79,91 +94,71 @@ features = np.array(features)
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
 from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.metrics import accuracy_score, precision_score, recall_score, precision_recall_fscore_support, make_scorer, \
     f1_score, classification_report
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 
-sss = StratifiedShuffleSplit(n_splits=1)
+sss = StratifiedShuffleSplit(n_splits = 10, random_state = 42)
 
-for train_index, test_index in sss.split(features, labels):
-    print("TRAIN:", train_index, "TEST:", test_index)
-    features_train, features_test = features[train_index], features[test_index]
-    labels_train, labels_test = labels[train_index], labels[test_index]
+def print_score(clf,features, labels, sss):
+    scores = cross_val_score(clf, features, labels, cv=sss, scoring='f1')
+    print("F1: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
+    print()
+
 
 # Provided to give you a starting point. Try a variety of classifiers.
 
-print()
-print('------Model Accuracies')
+def test_models():
+    print()
+    print('------Model Accuracies')
 
-# Naive Bayes
-from sklearn.naive_bayes import GaussianNB
+    # Naive Bayes
+    from sklearn.naive_bayes import GaussianNB
 
-clf = Pipeline([('reduce_dim', PCA()), ('clf', GaussianNB())])
-# clf = GaussianNB()
-print("Bayes model")
-scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
-                                         average='macro')
-print("Precision: ", scores[0])
-print("Recall: ", scores[1])
-print()
+    clf = Pipeline([('reduce_dim', PCA()), ('clf', GaussianNB())])
+    # clf = GaussianNB()
+    print("Bayes model")
+    print_score(clf,features, labels, sss)
 
-# SVM
-from sklearn.svm import SVC, LinearSVC
+    # SVM
+    from sklearn.svm import SVC, LinearSVC
 
-clf = Pipeline([('reduce_dim', PCA()), ('clf', SVC())])
-# clf = SVC()
-print("PCA SVM")
-scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
-                                         average='macro')
-print("Precision: ", scores[0])
-print("Recall: ", scores[1])
-print()
+    clf = Pipeline([('reduce_dim', PCA()), ('clf', SVC())])
+    # clf = SVC()
+    print("PCA SVM")
+    print_score(clf,features, labels, sss)
 
-# Random Forest
-from sklearn.ensemble import RandomForestClassifier
+    # Random Forest
+    from sklearn.ensemble import RandomForestClassifier
 
-clf = RandomForestClassifier(random_state=42)
-print("Random Forest")
-scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
-                                         average='macro')
-print("Precision: ", scores[0])
-print("Recall: ", scores[1])
-print()
+    clf = RandomForestClassifier(random_state=42)
+    print("Random Forest")
+    print_score(clf,features, labels, sss)
 
-from sklearn.ensemble import AdaBoostClassifier
+    from sklearn.ensemble import AdaBoostClassifier
 
-# Decision tree Ada
-from sklearn.tree import DecisionTreeClassifier
+    # Decision tree Ada
+    from sklearn.tree import DecisionTreeClassifier
 
-clf = AdaBoostClassifier(DecisionTreeClassifier(random_state=42))
-print("Ada boost decision tree")
-scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
-                                         average='macro')
-print("Precision: ", scores[0])
-print("Recall: ", scores[1])
-print()
+    clf = AdaBoostClassifier(DecisionTreeClassifier(random_state=42))
+    print("Ada boost decision tree")
+    print_score(clf,features, labels, sss)
 
-# Baysian Ada
-clf = AdaBoostClassifier(GaussianNB())
-print("Ada boost Baysian")
-scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
-                                         average='macro')
-print("Precision: ", scores[0])
-print("Recall: ", scores[1])
-print()
+    # Baysian Ada
+    clf = AdaBoostClassifier(GaussianNB())
+    print("Ada boost Baysian")
+    print_score(clf,features, labels, sss)
 
-# Baysian PCA Ada
-from sklearn.ensemble import AdaBoostClassifier
+    # Baysian PCA Ada
+    from sklearn.ensemble import AdaBoostClassifier
 
-clf = Pipeline([('reduce_dim', PCA()), ('clf', AdaBoostClassifier(GaussianNB()))])
-print("Ada boost PCA Baysian")
-scores = precision_recall_fscore_support(labels_test, clf.fit(features_train, labels_train).predict(features_test),
-                                         average='macro')
-print("Precision: ", scores[0])
-print("Recall: ", scores[1])
-print()
+    clf = Pipeline([('reduce_dim', PCA()), ('clf', AdaBoostClassifier(GaussianNB()))])
+    print("Ada boost PCA Baysian")
+    print_score(clf,features, labels, sss)
+
 
 ### Task 5: Tune your classifier to achieve better than .3 precision and recall
 ### using our testing script. Check the tester.py script in the final project
@@ -173,57 +168,68 @@ print()
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
 from sklearn.model_selection import GridSearchCV
-from sklearn.cross_validation import StratifiedKFold
 
-"""
-parameters = {"clf_max_depth": [2,3,4,5,6,7,8,9,10,11,12],
-              "clf_max_features": ['auto', 'sqrt', 'log2'],
-              "clf_min_samples_split": range(2, 6),
-              "clf_min_samples_leaf": range(1, 11),
-              "clf_n_estimators" : [5,7,10,12,14],
-              "clf_criterion": ["gini", "entropy"]}
-              """
+def optimize_model():
 
-parameters = dict(feature_selection__k=[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22],
-                  clf__n_estimators=[5, 10, 20, 30],
-                  clf__algorithm =('SAMME', 'SAMME.R'),
-                  clf__learning_rate = np.arange(0.1, 1, 0.1),
-                  clf__base_estimator__criterion=["gini", "entropy"],
-                  clf__base_estimator__splitter=["best", "random"],
-                  clf__base_estimator__min_samples_leaf=[1, 2, 3, 4, 5],
-                  clf__base_estimator__min_samples_split=[2, 3, 4, 5, 10])
+    print("---optmizing model---")
 
-sss = StratifiedShuffleSplit(random_state=42)
+    sss = StratifiedShuffleSplit(100, random_state=42)
 
-pipe = Pipeline([('feature_selection', SelectKBest()),
-                 ('clf', AdaBoostClassifier(DecisionTreeClassifier(random_state=42)))])
+    parameters = dict(feature_selection__k=[8, 10, 12, 14, 16],
+                      clf__n_estimators=[25,50],
+                      clf__algorithm=('SAMME', 'SAMME.R'),
+                      clf__learning_rate=[0.6,0.8,1],
+                      clf__base_estimator__criterion=["gini", "entropy"],
+                      #clf__base_estimator__splitter=["best", "random"],
+                      clf__base_estimator__min_samples_leaf=[1, 2, 3, 4, 5],
+                      clf__base_estimator__max_depth=range(1, 5),
+                      #clf__base_estimator__class_weight=['balanced']
+                    )
 
-clf_search = GridSearchCV(pipe
-                          , parameters,
-                          scoring='f1', n_jobs=-1,
-                          cv=sss, verbose=5, return_train_score=True)
+    feature_selection = SelectKBest()
+    scaler = MinMaxScaler()
+    clf = AdaBoostClassifier(DecisionTreeClassifier(random_state=42))
 
-clf_search.fit(features, labels)
+    pipe = Pipeline([('scaler', scaler),
+                     ('feature_selection', feature_selection),
+                     ('clf', clf)])
 
-print(clf_search.best_score_)
-print(clf_search.best_params_)
+    clf_search = GridSearchCV(pipe
+                              , parameters,
+                              scoring='f1', n_jobs=-1,
+                              cv=sss, verbose=5, return_train_score=True)
+    clf_search.fit(features, labels)
+
+    return clf_search
+
+
+
+
+
+# clf_search.fit(features, labels)
+
+# print(clf_search.best_score_)
+# print(clf_search.best_params_)
 
 # Best parameters Precision of 1
 
-# best_params = {'clf__base_estimator__splitter': 'random', 'clf__n_estimators': 30, 'clf__base_estimator__min_samples_split': 2, 'clf__base_estimator__criterion': 'entropy', 'feature_selection__k': 22, 'clf__base_estimator__min_samples_leaf': 1}
-best_params = clf_search.best_params_
-clf = Pipeline([('feature_selection', SelectKBest()),
-                ('clf', AdaBoostClassifier(DecisionTreeClassifier(random_state=42)))])
-clf.set_params(**best_params)
+# best_params = {'clf__algorithm': 'SAMME.R', 'clf__base_estimator__splitter': 'random', 'clf__n_estimators': 5, 'clf__learning_rate': 0.5, 'clf__base_estimator__min_samples_split': 4, 'clf__base_estimator__criterion': 'gini', 'clf__base_estimator__min_samples_leaf': 4}
+# best_params = clf_search.best_params_
+#clf = Pipeline([('feature_selection', SelectKBest(k=10)),
+#                ('clf', AdaBoostClassifier(DecisionTreeClassifier(random_state=42)))])
+#clf.set_params(**best_params)
+clf_search = optimize_model()
+print ('Best parameters: ', clf_search.best_params_)
+clf = clf_search.best_estimator_
+print("Optimized model")
+test_classifier(clf, my_dataset, features_list)
 
-print("optimized model (Adaboost decision tree):")
-prediction = clf.fit(features_train, labels_train).predict(features_test)
-print(labels_test)
-print()
-print(prediction)
-scores = precision_recall_fscore_support(labels_test, prediction, average='macro')
-print("Precision: ", scores[0])
-print("Recall: ", scores[1])
+
+
+# clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth=1, min_samples_leaf=2, class_weight='balanced'),
+#                          n_estimators=50, learning_rate=.8)
+
+# test_classifier(clf, my_dataset, features_list)
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
 ### check your results. You do not need to change anything below, but make sure
