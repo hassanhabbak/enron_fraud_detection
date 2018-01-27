@@ -35,12 +35,17 @@ with open("final_project_dataset.pkl", "r") as data_file:
     data_dict = pickle.load(data_file)
 
 ### Create dataframes
+print('**********************')
+print('***Data description***')
+print('**********************')
 df = pd.DataFrame.from_dict(data_dict, orient='index')
 df = df.replace('NaN', np.nan)  # Replacing the string NaN to np NaN
 print(df.describe())
 
 ### Task 2: Remove outliers
-
+print('**********************')
+print('***Nan and outliers***')
+print('**********************')
 # Fill missing values
 # Filling with median will avoid the influence of outliers
 """
@@ -48,6 +53,9 @@ df[financial_features] = df[financial_features].apply(lambda x: x.fillna(x.media
                                                       axis=0)  # Fill with median of each column
 df[email_features] = df[email_features].fillna(df[email_features].median())  # Fill with median of each column
 """
+
+print('Nan count')
+print(len(df[financial_features]) - df[financial_features].count())
 
 df[financial_features] = df[financial_features].fillna(0)
 df[email_features] = df[email_features].fillna(df[email_features].median())  # Fill with median of each column
@@ -71,19 +79,33 @@ features_list = ['poi', 'salary', 'deferral_payments', 'total_payments', 'loan_a
                  'director_fees', 'to_messages', 'from_poi_to_this_person', 'from_messages',
                  'from_this_person_to_poi', 'shared_receipt_with_poi', 'bonus_per_salary',
                  'ratio_emails_from_poi', 'ratio_emails_to_poi']
-"""
-features_list = ['poi', 'salary', 'total_stock_value', 'expenses', 'bonus',
-          'exercised_stock_options', 'deferred_income',
-          'ratio_emails_to_poi', 'from_poi_to_this_person', 'ratio_emails_from_poi',
-          'shared_receipt_with_poi']"""
-print(features_list)
 
 my_dataset = df.to_dict('index')
-# my_dataset = data_dict
 
 ### Extract features and labels from dataset for local testing
+print('*************************')
+print('***Extracting features***')
+print('*************************')
 data = featureFormat(my_dataset, features_list, sort_keys=True)
 labels, features = targetFeatureSplit(data)
+
+print("POI Count: ", labels.count(1))
+
+skbest=SelectKBest(k=14)
+sk_transform = skbest.fit_transform(features, labels)
+indices = skbest.get_support(True)
+print (skbest.scores_)
+
+selected_features = ['poi']
+
+for index in indices:
+    print ('features: %s score: %f' % (features_list[index + 1], skbest.scores_[index]))
+    selected_features.append(features_list[index + 1])
+
+features_list = selected_features
+print(features_list)
+
+print("Final optimized features---")
 
 labels = np.array(labels)
 features = np.array(features)
@@ -93,11 +115,8 @@ features = np.array(features)
 ### Note that if you want to do PCA or other multi-stage operations,
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
-from sklearn.cross_validation import train_test_split
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import StratifiedShuffleSplit
-from sklearn.metrics import accuracy_score, precision_score, recall_score, precision_recall_fscore_support, make_scorer, \
-    f1_score, classification_report
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 
@@ -108,10 +127,10 @@ def print_score(clf,features, labels, sss):
     print("F1: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
     print()
 
-
-# Provided to give you a starting point. Try a variety of classifiers.
-
 def test_models():
+    print('*****************************')
+    print('***Trying different models***')
+    print('*****************************')
     print()
     print('------Model Accuracies')
 
@@ -170,7 +189,9 @@ def test_models():
 from sklearn.model_selection import GridSearchCV
 
 def optimize_model():
-
+    print('**********************')
+    print('***Optimizing model***')
+    print('**********************')
     print("---optmizing model---")
 
     sss = StratifiedShuffleSplit(100, random_state=42)
@@ -180,10 +201,9 @@ def optimize_model():
                       clf__algorithm=('SAMME', 'SAMME.R'),
                       clf__learning_rate=[0.6,0.8,1],
                       clf__base_estimator__criterion=["gini", "entropy"],
-                      #clf__base_estimator__splitter=["best", "random"],
                       clf__base_estimator__min_samples_leaf=[1, 2, 3, 4, 5],
                       clf__base_estimator__max_depth=range(1, 5),
-                      #clf__base_estimator__class_weight=['balanced']
+                      clf__base_estimator__class_weight=['balanced']
                     )
 
     feature_selection = SelectKBest()
@@ -205,29 +225,35 @@ def optimize_model():
 
 
 
+# Running search grid on model
 
-# clf_search.fit(features, labels)
+#clf_search = optimize_model()
+#print ('Best parameters: ', clf_search.best_params_)
+#clf = clf_search.best_estimator_
 
-# print(clf_search.best_score_)
-# print(clf_search.best_params_)
+best_params =  {'clf__base_estimator__class_weight':'balanced',
+                'clf__algorithm': 'SAMME',
+                'clf__n_estimators': 50,
+                'clf__learning_rate': 0.8,
+                'clf__base_estimator__max_depth': 3,
+                'clf__base_estimator__criterion': 'gini',
+                'feature_selection__k': 14,
+                'clf__base_estimator__min_samples_leaf': 3}
 
-# Best parameters Precision of 1
+feature_selection = SelectKBest()
+scaler = MinMaxScaler()
+clf = AdaBoostClassifier(DecisionTreeClassifier(random_state=42))
 
-# best_params = {'clf__algorithm': 'SAMME.R', 'clf__base_estimator__splitter': 'random', 'clf__n_estimators': 5, 'clf__learning_rate': 0.5, 'clf__base_estimator__min_samples_split': 4, 'clf__base_estimator__criterion': 'gini', 'clf__base_estimator__min_samples_leaf': 4}
-# best_params = clf_search.best_params_
-#clf = Pipeline([('feature_selection', SelectKBest(k=10)),
-#                ('clf', AdaBoostClassifier(DecisionTreeClassifier(random_state=42)))])
-#clf.set_params(**best_params)
-clf_search = optimize_model()
-print ('Best parameters: ', clf_search.best_params_)
-clf = clf_search.best_estimator_
-print("Optimized model")
+clf = Pipeline([('scaler', scaler),
+                ('feature_selection', feature_selection),
+                ('clf', clf)])
+clf.set_params(**best_params)
+
+print('*****************************')
+print('***Testing optimized model***')
+print('*****************************')
 test_classifier(clf, my_dataset, features_list)
 
-
-
-# clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth=1, min_samples_leaf=2, class_weight='balanced'),
-#                          n_estimators=50, learning_rate=.8)
 
 # test_classifier(clf, my_dataset, features_list)
 
@@ -235,5 +261,7 @@ test_classifier(clf, my_dataset, features_list)
 ### check your results. You do not need to change anything below, but make sure
 ### that the version of poi_id.py that you submit can be run on its own and
 ### generates the necessary .pkl files for validating your results.
-
+print('*******************')
+print('***Dumping model***')
+print('*******************')
 dump_classifier_and_data(clf, my_dataset, features_list)

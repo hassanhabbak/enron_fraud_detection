@@ -12,37 +12,59 @@ For the Email information it contains how many emails where sent and received as
 
 For financial data, we have the salary and how much they received as bonus. This should be a good indication on what they did for Enron as well as if they were involved in fraud in one way or another.
 
+# Dataset information
+
+We have 146 records in our dataset. 
+
+There are 17 person of interest in our dataset.
+
+There is a large number of null values in them.
+    
+    Null Values:
+    salary                        51
+    deferral_payments            107
+    total_payments                21
+    loan_advances                142
+    bonus                         64
+    restricted_stock_deferred    128
+    deferred_income               97
+    total_stock_value             20
+    expenses                      51
+    exercised_stock_options       44
+    other                         53
+    long_term_incentive           80
+    restricted_stock              36
+    director_fees                129
+    
+Due to the large null values, I opted to set the values to 0. Originally I tried setting the values to the mean of the other values, however due to our small dataset, it caused information dilution and the models did not train as well.
+
+For Emails there was some really high outliers up to 15100 emails. This could be due to an error in the data. I opted to remove any outliers higher than 3 * STD value.
+
+For salaries, while there were outliers, I opted not to remove them. That is because I believe they could be an indication to a POI.
+
 # Features used
-    .'salary'
-    .'deferral_payments'
-    .'total_payments'
-    .'loan_advances'
-    .'bonus'
-    .'restricted_stock_deferred'
-    .'deferred_income'
-    .'total_stock_value'
-    .'expenses'
-    .'exercised_stock_options'
-    .'other'
-    .'long_term_incentive'
-    .'restricted_stock'
-    .'director_fees'
-    .'to_messages'
-    .'from_poi_to_this_person'
-    .'from_messages'
-    .'from_this_person_to_poi'
-    .'shared_receipt_with_poi'
-    .'bonus_per_salary'
-    .'ratio_emails_from_poi'
-    .'ratio_emails_to_poi'
+    . deferral_payments score: 0.421996
+    . total_payments score: 0.339702
+    . loan_advances score: 2.637120
+    . deferred_income score: 0.076958
+    . total_stock_value score: 0.188827
+    . exercised_stock_options score: 0.251093
+    . director_fees score: 0.531313
+    . to_messages score: 1.992600
+    . from_poi_to_this_person score: 3.143320
+    . from_this_person_to_poi score: 3.181665
+    . shared_receipt_with_poi score: 6.255575
+    . bonus_per_salary score: 5.753669
+    . ratio_emails_from_poi score: 3.997957
+    . ratio_emails_to_poi score: 3.999569
 
 The last 3 features were engineered. Feature 'bonus_per_salary' is how big of a bonus was received in comparison to the salary, to highlight extremely high bonuses to salary that may highlight fraud. For both features 'ratio_emails_from_poi' and 'ratio_emails_to_poi' are crucial in highlighting how much of the person's activity was emailing to and from POI. This could highlight if the person is also a POI.
 
-PCA was used for dimensionality reduction in some of the models used. However the end model used is insensitive to feature scaling (Random forest), so no scaling is required.
+I used selectkbest for selecting the best features. Then a search grid found out that 14 features are needed for the best F1 score.
 
 # Algorithm used
 
-In the end I have selected Random Forest. This resulted in a boost in precision and recall over other models, although there were certain models that were performing very close. I have tried (Bayes, Adaboost Bayes, PCA with SVM). When using PCA with Bayes it resulted in much less accuracy. However the rest were very close in performance. The reason I selected Randomforest is that it does not require any feature scaling and also deals really well with high dimensionality.
+In the end I have selected Adaboost Decision tree. This resulted in a boost in precision and recall over other models, although there were certain models that were performing very close. I have tried (Bayes, Adaboost Bayes, PCA with SVM). When using PCA with Bayes it resulted in much less accuracy. However the rest were very close in performance. The reason I selected Randomforest is that it does not require any feature scaling and also benefits a lot from boosting.
 
 # Model tuning
 
@@ -50,26 +72,41 @@ A lot of ML models start with early assumptions that can greatly affect the perf
 
 Parameters used:
 
-    ."max_depth": [3, None]
-    ."max_features": range(1, 11)
-    ."min_samples_split": range(2, 15)
-    ."bootstrap": [True, False]
-    ."criterion": ["gini", "entropy"]
+    dict(feature_selection__k=[8, 10, 12, 14, 16],
+         clf__n_estimators=[25,50],
+         clf__algorithm=('SAMME', 'SAMME.R'),
+         clf__learning_rate=[0.6,0.8,1],
+         clf__base_estimator__criterion=["gini", "entropy"],
+         clf__base_estimator__min_samples_leaf=[1, 2, 3, 4, 5],
+         clf__base_estimator__max_depth=range(1, 5),
+         clf__base_estimator__class_weight=['balanced']
+         )
 
 Those are the parameters that Adaboost can accept. After running parameters randomization the following proved to be the best parameters:
 
-    .'bootstrap':True
-    .'min_samples_split':2
-    .'criterion':'gini'
-    .'max_features':7
-    .'max_depth':None
+    {'clf__base_estimator__class_weight':'balanced',
+     'clf__algorithm': 'SAMME',
+     'clf__n_estimators': 50,
+     'clf__learning_rate': 0.8,
+     'clf__base_estimator__max_depth': 3,
+     'clf__base_estimator__criterion': 'gini',
+     'feature_selection__k': 14,
+     'clf__base_estimator__min_samples_leaf': 3}
+     
+Without model tuning, you risk running a suboptimal model. The model will not reach its top performance. However if too much tuning is done, then the model could over fit to the data and not perform as well in the real world.
 
 # Model validation
 
-Model validation is to see how well your model predicts an in-depended dataset correctly. This is why in the project validation was done by spliting the dataset into training to testing data. We only training with the training data, then we predict using the test data and see how well the model performed. This is to avoid over fitting. One classic mistake is to try and predict using the testing data, which might result in an extremely high accuracy but fail to perform well in real life.
+Model validation is to see how well your model predicts an in-depended dataset correctly. This is why in the project validation was done by spliting the dataset into training to testing data using StratifiedShuffleSplit which maintains class balance and works well with small datasets. Then using cross validator, We only training with the training data, then we predict using the test data and see how well the model performed. This is to avoid over fitting. One classic mistake is to try and predict using the testing data, which might result in an extremely high accuracy but fail to perform well in real life.
 
 # Performance metrics
 
-Accuracy: 0.79
-Precision: 0.404
-Recall: 0.485
+Accuracy: 0.84533       
+Precision: 0.40868      
+Recall: 0.35800 
+F1: 0.38166     
+F2: 0.36710
+
+Precision (also called positive predictive value) is the fraction of relevant instances among the retrieved instances, while recall (also known as sensitivity) is the fraction of relevant instances that have been retrieved over the total amount of relevant instances. Both precision and recall are therefore based on an understanding and measure of relevance.
+
+We only have 17 POI vs 129 non-POI. Because of this, our data is very unbalanced toward non-POI. So relying solely on accuracy is very misleading. A model that only predicts that everyone is a non-POI will have 0.88 accuracy, but zero predictive power. In this case, precision and recall are much more accurate metrics for validating the model.
