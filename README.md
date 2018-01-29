@@ -16,7 +16,7 @@ For financial data, we have the salary and how much they received as bonus. This
 
 We have 146 records in our dataset. 
 
-There are 17 person of interest in our dataset.
+There are 18 person of interest in our dataset.
 
 There is a large number of null values in them.
     
@@ -41,6 +41,17 @@ Due to the large null values, I opted to set the values to 0. Originally I tried
 For Emails there was some really high outliers up to 15100 emails. This could be due to an error in the data. I opted to remove any outliers higher than 3 * STD value.
 
 For salaries, while there were outliers, I opted not to remove them. That is because I believe they could be an indication to a POI.
+
+There was one record named Total that is the sum of all other values, I dropped that.
+
+There are two individuals with extremely high number of emails. I dropped their records. Their names are 'Shaprio Richard S' and 'Kaminski Wincenty J'
+
+# Outliers removed
+
+Those are the individuals that were dropped from our dataset.
+
+'The Travel Agency in the Park' Is not a person.
+'TOTAL' This was considered for removal, since this is just an aggregate of all others. However the model is prediciting better when it is included so I am leaving it.
 
 # Features used
     . deferral_payments score: 0.421996
@@ -101,12 +112,16 @@ Model validation is to see how well your model predicts an in-depended dataset c
 
 # Performance metrics
 
-Accuracy: 0.84533       
-Precision: 0.40868      
-Recall: 0.35800 
-F1: 0.38166     
-F2: 0.36710
+Accuracy: 0.83860       
+Precision: 0.38529      
+Recall: 0.35350 
+F1: 0.36871     
+F2: 0.35943
 
 Precision (also called positive predictive value) is the fraction of relevant instances among the retrieved instances, while recall (also known as sensitivity) is the fraction of relevant instances that have been retrieved over the total amount of relevant instances. Both precision and recall are therefore based on an understanding and measure of relevance.
 
-We only have 17 POI vs 129 non-POI. Because of this, our data is very unbalanced toward non-POI. So relying solely on accuracy is very misleading. A model that only predicts that everyone is a non-POI will have 0.88 accuracy, but zero predictive power. In this case, precision and recall are much more accurate metrics for validating the model.
+Precision is the ratio of person guessed as POI vs how many true POI actually are. Higher precision means less false positive.
+
+Recall is the ratio of person identified as POI vs how many total POI actually are. Higher recall score means less false negatives.
+
+We only have 18 POI vs 129 non-POI. Because of this, our data is very unbalanced toward non-POI. So relying solely on accuracy is very misleading. A model that only predicts that everyone is a non-POI will have 0.88 accuracy, but zero predictive power. In this case, precision and recall are much more accurate metrics for validating the model.

@@ -38,11 +38,16 @@ with open("final_project_dataset.pkl", "r") as data_file:
 print('**********************')
 print('***Data description***')
 print('**********************')
+# print("POI Count: ", labels.count(1))
 df = pd.DataFrame.from_dict(data_dict, orient='index')
+print('Number of rows in data: ',df.shape)
 df = df.replace('NaN', np.nan)  # Replacing the string NaN to np NaN
 print(df.describe())
+print("POI Count: ", df['poi'].value_counts())
 
 ### Task 2: Remove outliers
+with pd.option_context('display.max_rows', None, 'display.max_columns', 13):
+    print(df)
 print('**********************')
 print('***Nan and outliers***')
 print('**********************')
@@ -60,12 +65,25 @@ print(len(df[financial_features]) - df[financial_features].count())
 df[financial_features] = df[financial_features].fillna(0)
 df[email_features] = df[email_features].fillna(df[email_features].median())  # Fill with median of each column
 
+# Remove Row Total!
+# This row is the total of all other values
+# df.drop('TOTAL', inplace=True)
+
+# Removed agency
+df.drop('THE TRAVEL AGENCY IN THE PARK', inplace=True)
+
+print('Number of rows in data: ',df.shape)
 
 # From the description of the dataframe, outliers are mostly in email sent
 # We want to retain outliers in salary or financial
-df = df[np.abs(df.to_messages - df.to_messages.mean()) <= (3 * df.to_messages.std())]
-df = df[np.abs(df.from_messages - df.from_messages.mean()) <= (3 * df.from_messages.std())]
+print('Email to messages outlier removed:')
+print(df[np.abs(df.to_messages - df.to_messages.mean()) >= 3 * df.to_messages.std() ][['poi', 'to_messages']])
+print('Email from messages outlier removed:')
+print(df[np.abs(df.from_messages - df.from_messages.mean()) >= (3 * df.from_messages.std())][['poi', 'from_messages']])
 
+df = df[(np.abs(df.to_messages - df.to_messages.mean()) <= (3 * df.to_messages.std())) | (df.poi == True)]
+df = df[(np.abs(df.from_messages - df.from_messages.mean()) <= (3 * df.from_messages.std())) | (df.poi == True)]
+print('New Number of rows in data: ',df.shape)
 ### Task 3: Create new feature(s)
 ### Store to my_dataset for easy export below.
 df['bonus_per_salary'] = df.bonus / df.salary
@@ -81,6 +99,7 @@ features_list = ['poi', 'salary', 'deferral_payments', 'total_payments', 'loan_a
                  'ratio_emails_from_poi', 'ratio_emails_to_poi']
 
 my_dataset = df.to_dict('index')
+print("Length of converted Dataset:", len(my_dataset))
 
 ### Extract features and labels from dataset for local testing
 print('*************************')
@@ -88,8 +107,7 @@ print('***Extracting features***')
 print('*************************')
 data = featureFormat(my_dataset, features_list, sort_keys=True)
 labels, features = targetFeatureSplit(data)
-
-print("POI Count: ", labels.count(1))
+print("Data row count: ", len(data))
 
 skbest=SelectKBest(k=14)
 sk_transform = skbest.fit_transform(features, labels)
@@ -194,7 +212,7 @@ def optimize_model():
     print('**********************')
     print("---optmizing model---")
 
-    sss = StratifiedShuffleSplit(100, random_state=42)
+    sss = StratifiedShuffleSplit(500, random_state=42)
 
     parameters = dict(feature_selection__k=[8, 10, 12, 14, 16],
                       clf__n_estimators=[25,50],
@@ -230,6 +248,7 @@ def optimize_model():
 #clf_search = optimize_model()
 #print ('Best parameters: ', clf_search.best_params_)
 #clf = clf_search.best_estimator_
+
 
 best_params =  {'clf__base_estimator__class_weight':'balanced',
                 'clf__algorithm': 'SAMME',
